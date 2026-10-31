@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smart Expense</title>
+<style>
+:root{--bg:#f4f6fb;--card:#fff;--text:#1d2433;--muted:#6b7488;--primary:#4f46e5;--green:#16a34a;--red:#dc2626;--border:#e3e7f0}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text);padding:16px}
+.wrap{max-width:1000px;margin:0 auto}
+header{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+h1{font-size:1.4rem}h2{font-size:1.05rem;margin-bottom:12px}
+.grid{display:grid;gap:16px}
+.cards{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.two{grid-template-columns:repeat(auto-fit,minmax(320px,1fr));margin-top:16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px}
+.warn{background:#fff7ed;border-color:#fdba74;margin-bottom:16px}
+.label{color:var(--muted);font-size:.85rem}
+.big{font-size:1.7rem;font-weight:700;margin-top:4px}
+.pos{color:var(--green)}.neg{color:var(--red)}
+form{display:grid;gap:10px}
+input,select,button{font:inherit;padding:10px;border-radius:10px;border:1px solid var(--border);width:100%}
+button{background:var(--primary);color:#fff;border:none;cursor:pointer;font-weight:600}
+button.ghost{background:#eef0fa;color:var(--primary)}
+button.small{width:auto;padding:4px 10px;font-size:.8rem}
+button.del{background:#fee2e2;color:var(--red)}
+.row{display:flex;gap:8px}
+.filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:12px}
+.tx{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);gap:8px}
+.tx small{color:var(--muted);display:block}
+.bar{height:8px;background:#e8eaf3;border-radius:99px;overflow:hidden;margin-top:6px}
+.bar>i{display:block;height:100%;background:var(--primary)}
+.bar>i.over{background:var(--red)}
+.cat{margin-bottom:14px}
+.cat .top{display:flex;justify-content:space-between;font-size:.9rem}
+.empty{color:var(--muted);text-align:center;padding:16px}
+#login{max-width:420px;margin:40px auto;display:grid;gap:12px}
+#googleBtn{background:#fff;color:var(--text);border:1px solid var(--border)}
+#authErr{font-size:.9rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div id="msg" class="card warn" style="display:none"></div>
+
+<section id="login" class="card" style="display:none">
+  <h1>💰 Smart Expense</h1>
+  <p class="label">Connecte-toi pour retrouver tes données sur ton téléphone et ton ordinateur.</p>
+  <button id="googleBtn" type="button">Continuer avec Google</button>
+  <form id="authForm">
+    <input id="email" type="email" placeholder="Adresse e-mail" autocomplete="email" required>
+    <input id="password" type="password" placeholder="Mot de passe (6 caractères minimum)" autocomplete="current-password" required>
+    <div class="row">
+      <button type="submit">Se connecter</button>
+      <button type="button" class="ghost" id="signupBtn">Créer un compte</button>
+    </div>
+  </form>
+  <div id="authErr" class="neg"></div>
+</section>
+
+<main id="app" style="display:none">
+<header>
+  <h1>💰 Smart Expense</h1>
+  <div class="row" style="width:auto;align-items:center">
+    <input type="month" id="month" style="width:auto">
+    <button class="ghost small" id="logoutBtn" type="button">Déconnexion</button>
+  </div>
+</header>
+<div class="label" id="userEmail" style="margin:-8px 0 12px"></div>
+
+<div id="importBar" class="card warn" style="display:none">
+  <div id="importText" style="margin-bottom:8px"></div>
+  <button id="importBtn" type="button">Importer dans mon compte</button>
+</div>
+
+<section class="grid cards">
+  <div class="card"><div class="label">Solde total</div><div class="big" id="balance">0 FCFA</div></div>
+  <div class="card"><div class="label">Revenus du mois</div><div class="big pos" id="income">0 FCFA</div></div>
+  <div class="card"><div class="label">Dépenses du mois</div><div class="big neg" id="expense">0 FCFA</div></div>
+</section>
+
+<section class="grid two">
+  <div class="card">
+    <h2 id="formTitle">Nouvelle opération</h2>
+    <form id="form">
+      <select id="type"><option value="expense">Dépense</option><option value="income">Revenu</option></select>
+      <input id="desc" placeholder="Description (ex : taxi, loyer, salaire)" required>
+      <input id="amount" type="number" min="1" step="1" placeholder="Montant en FCFA" required>
+      <select id="cat"></select>
+      <input id="date" type="date" required>
+      <div class="row"><button type="submit" id="submitBtn">Ajouter</button><button type="button" class="ghost" id="cancelBtn" style="display:none">Annuler</button></div>
+    </form>
+  </div>
+  <div class="card">
+    <h2>Budget et statistiques par catégorie</h2>
+    <div id="stats"></div>
+  </div>
+</section>
+
+<section class="card" style="margin-top:16px">
+  <h2>Historique</h2>
+  <div class="filters">
+    <select id="fType"><option value="">Tous types</option><option value="expense">Dépenses</option><option value="income">Revenus</option></select>
+    <select id="fCat"></select>
+    <input id="fSearch" placeholder="Rechercher…">
+    <select id="fScope"><option value="month">Mois choisi</option><option value="all">Tout l’historique</option></select>
+  </div>
+  <div id="list"></div>
+</section>
+</main>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+/* ====== COLLE ICI LA CONFIGURATION DE TON PROJET FIREBASE ====== */
+const firebaseConfig = {
+  apiKey: "AIzaSyBRGMGq747UoDAuBqmkueTTXtHJR-HUCCQ",
+  authDomain: "smart-expense-c975a.firebaseapp.com",
+  projectId: "smart-expense-c975a",
+  storageBucket: "smart-expense-c975a.firebasestorage.app",
+  messagingSenderId: "876446827405",
+  appId: "1:876446827405:web:c00cc004083c9b1d8673c4"
+};
+/* =============================================================== */
+
+const $ = id => document.getElementById(id);
+const CATS = ['Alimentation','Transport','Logement','Santé','Loisirs','Éducation','Communication','Autre'];
+const INCOME_CAT = 'Revenu';
+const RULES = {
+  Alimentation:['riz','marché','marche','restaurant','resto','pain','viande','poisson','nourriture','courses','boisson','café'],
+  Transport:['taxi','bus','moto','essence','carburant','transport','uber','yango','péage'],
+  Logement:['loyer','électricité','electricite','eau','sonabel','onea','gaz','ménage'],
+  Santé:['pharmacie','médecin','medecin','hôpital','hopital','clinique','médicament','medicament'],
+  Loisirs:['cinéma','cinema','sortie','jeu','netflix','concert','sport','voyage'],
+  Éducation:['école','ecole','scolarité','scolarite','livre','cours','formation','université'],
+  Communication:['internet','forfait','crédit','credit','wifi','téléphone','telephone','recharge']
+};
+const LOCAL_KEY = 'smart-expense-v1';
+const IMPORTED_KEY = 'smart-expense-imported';
+
+let auth, db, uid = null, unsubs = [], tx = [], budgets = {}, editId = null;
+
+const fmt = n => new Intl.NumberFormat('fr-FR',{maximumFractionDigits:0}).format(Math.round(n)).replace(/\u202f|\u00a0/g,' ') + ' FCFA';
+const today = () => new Date().toISOString().slice(0,10);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function autoCat(desc){
+  const d = desc.toLowerCase();
+  for (const c in RULES) if (RULES[c].some(k => d.includes(k))) return c;
+  return 'Autre';
+}
+function showMsg(t){ const m = $('msg'); m.textContent = t; m.style.display = 'block'; }
+function authError(e){
+  const map = {
+    'auth/invalid-credential':'E-mail ou mot de passe incorrect.',
+    'auth/email-already-in-use':'Cette adresse a déjà un compte. Clique sur « Se connecter ».',
+    'auth/weak-password':'Mot de passe trop court : 6 caractères minimum.',
+    'auth/invalid-email':'Adresse e-mail invalide.',
+    'auth/popup-closed-by-user':'Connexion annulée.',
+    'auth/unauthorized-domain':'Ajoute ce domaine dans Firebase : Authentication, Paramètres, Domaines autorisés.'
+  };
+  $('authErr').textContent = map[e.code] || ('Erreur : ' + (e.code || e.message));
+}
+
+/* ---------- Démarrage ---------- */
+if (firebaseConfig.apiKey === 'COLLE_ICI') {
+  showMsg('Remplace le bloc firebaseConfig, au début du script, par la configuration de ton projet Firebase.');
+} else if (location.protocol === 'file:') {
+  showMsg('La connexion ne fonctionne pas depuis un fichier ouvert sur l’ordinateur. Publie cette page en ligne (par exemple avec GitHub Pages), puis ouvre le lien obtenu.');
+} else {
+  start();
+}
+
+function start(){
+  const app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  try {
+    db = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
+  } catch (e) {
+    db = getFirestore(app);
+  }
+
+  $('month').value = today().slice(0,7);
+  $('date').value = today();
+  $('cat').innerHTML = '<option value="auto">Catégorie : automatique</option>' + CATS.map(c => `<option>${c}</option>`).join('');
+  $('fCat').innerHTML = '<option value="">Toutes catégories</option>' + CATS.concat([INCOME_CAT]).map(c => `<option>${c}</option>`).join('');
+  ['month','fType','fCat','fSearch','fScope'].forEach(id => $(id).addEventListener('input', render));
+  $('form').addEventListener('submit', onSubmit);
+  $('cancelBtn').addEventListener('click', resetForm);
+
+  $('googleBtn').addEventListener('click', () => {
+    $('authErr').textContent = '';
+    signInWithPopup(auth, new GoogleAuthProvider()).catch(authError);
+  });
+  $('authForm').addEventListener('submit', e => {
+    e.preventDefault(); $('authErr').textContent = '';
+    signInWithEmailAndPassword(auth, $('email').value.trim(), $('password').value).catch(authError);
+  });
+  $('signupBtn').addEventListener('click', () => {
+    $('authErr').textContent = '';
+    const em = $('email').value.trim(), pw = $('password').value;
+    if (!em || !pw) { $('authErr').textContent = 'Saisis une adresse e-mail et un mot de passe.'; return; }
+    createUserWithEmailAndPassword(auth, em, pw).catch(authError);
+  });
+  $('logoutBtn').addEventListener('click', () => signOut(auth));
+  $('importBtn').addEventListener('click', importLocal);
+
+  onAuthStateChanged(auth, user => {
+    unsubs.forEach(u => u()); unsubs = [];
+    tx = []; budgets = {};
+    if (!user) {
+      uid = null;
+      $('app').style.display = 'none';
+      $('login').style.display = 'grid';
+      return;
+    }
+    uid = user.uid;
+    $('login').style.display = 'none';
+    $('app').style.display = 'block';
+    $('userEmail').textContent = user.email || '';
+    unsubs.push(onSnapshot(collection(db,'users',uid,'tx'), snap => {
+      tx = snap.docs.map(d => d.data());
+      render(); checkImport();
+    }, err => showMsg('Lecture impossible : ' + err.code + '. Vérifie les règles Firestore.')));
+    unsubs.push(onSnapshot(doc(db,'users',uid,'meta','budgets'), snap => {
+      budgets = snap.exists() ? snap.data() : {};
+      render();
+    }));
+    render();
+  });
+}
+
+/* ---------- Opérations ---------- */
+function onSubmit(e){
+  e.preventDefault();
+  if (!uid) return;
+  const type = $('type').value;
+  const desc = $('desc').value.trim();
+  const amount = Math.round(Number($('amount').value));
+  if (!desc || !(amount > 0)) return;
+  let cat = $('cat').value;
+  if (type === 'income') cat = INCOME_CAT;
+  else if (cat === 'auto') cat = autoCat(desc);
+  const t = { id: editId || Date.now().toString(36) + Math.random().toString(36).slice(2,6), type, desc, amount, cat, date: $('date').value };
+  setDoc(doc(db,'users',uid,'tx',t.id), t).catch(err => showMsg('Enregistrement impossible : ' + err.code));
+  resetForm();
+}
+function resetForm(){
+  editId = null; $('form').reset(); $('date').value = today();
+  $('formTitle').textContent = 'Nouvelle opération'; $('submitBtn').textContent = 'Ajouter'; $('cancelBtn').style.display = 'none';
+}
+window.edit = id => {
+  const t = tx.find(x => x.id === id); if (!t) return;
+  editId = id; $('type').value = t.type; $('desc').value = t.desc; $('amount').value = t.amount;
+  $('cat').value = t.type === 'income' ? 'auto' : t.cat; $('date').value = t.date;
+  $('formTitle').textContent = 'Modifier l’opération'; $('submitBtn').textContent = 'Enregistrer'; $('cancelBtn').style.display = 'block';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+window.del = id => {
+  if (!confirm('Supprimer cette opération ?')) return;
+  deleteDoc(doc(db,'users',uid,'tx',id)).catch(err => showMsg('Suppression impossible : ' + err.code));
+};
+window.setBudget = cat => {
+  const v = prompt('Budget mensuel pour ' + cat + ' (FCFA, 0 pour retirer) :', budgets[cat] || 0);
+  if (v === null) return;
+  const n = Math.round(Number(v));
+  const next = { ...budgets };
+  if (n > 0) next[cat] = n; else delete next[cat];
+  setDoc(doc(db,'users',uid,'meta','budgets'), next).catch(err => showMsg('Budget non enregistré : ' + err.code));
+};
+
+/* ---------- Import des données de l’ancienne version ---------- */
+function readLocal(){
+  try { const s = JSON.parse(localStorage.getItem(LOCAL_KEY)); if (s && Array.isArray(s.tx)) return s; } catch (e) {}
+  return { tx: [], budgets: {} };
+}
+function checkImport(){
+  const local = readLocal();
+  const show = local.tx.length > 0 && !localStorage.getItem(IMPORTED_KEY);
+  $('importBar').style.display = show ? 'block' : 'none';
+  if (show) $('importText').textContent = local.tx.length + ' opération(s) sont enregistrées sur cet appareil. Veux-tu les ajouter à ton compte ?';
+}
+async function importLocal(){
+  const local = readLocal();
+  try {
+    for (let i = 0; i < local.tx.length; i += 400) {
+      const b = writeBatch(db);
+      local.tx.slice(i, i + 400).forEach(t => b.set(doc(db,'users',uid,'tx',t.id), t));
+      await b.commit();
+    }
+    if (local.budgets && Object.keys(local.budgets).length) {
+      await setDoc(doc(db,'users',uid,'meta','budgets'), { ...local.budgets, ...budgets });
+    }
+    localStorage.setItem(IMPORTED_KEY, '1');
+    $('importBar').style.display = 'none';
+  } catch (e) {
+    showMsg('Import impossible : ' + (e.code || e.message));
+  }
+}
+
+/* ---------- Affichage (recalcul automatique à chaque changement) ---------- */
+function render(){
+  if (!uid) return;
+  const month = $('month').value || today().slice(0,7);
+  const balance = tx.reduce((s,t) => s + (t.type === 'income' ? t.amount : -t.amount), 0);
+  const mTx = tx.filter(t => t.date.startsWith(month));
+  const inc = mTx.filter(t => t.type === 'income').reduce((s,t) => s + t.amount, 0);
+  const exp = mTx.filter(t => t.type === 'expense').reduce((s,t) => s + t.amount, 0);
+  $('balance').textContent = fmt(balance);
+  $('balance').className = 'big ' + (balance >= 0 ? 'pos' : 'neg');
+  $('income').textContent = fmt(inc);
+  $('expense').textContent = fmt(exp);
+
+  $('stats').innerHTML = CATS.map(c => {
+    const spent = mTx.filter(t => t.type === 'expense' && t.cat === c).reduce((s,t) => s + t.amount, 0);
+    const b = budgets[c] || 0;
+    const pct = b ? Math.min(100, spent / b * 100) : (exp ? spent / exp * 100 : 0);
+    const over = b && spent > b;
+    return `<div class="cat"><div class="top"><span>${c}</span><span>${fmt(spent)}${b ? ' / ' + fmt(b) : ''}</span></div><div class="bar"><i class="${over ? 'over' : ''}" style="width:${pct}%"></i></div><div class="row" style="margin-top:6px;align-items:center"><button class="small ghost" onclick="setBudget('${c}')">Définir le budget</button>${over ? '<span class="neg" style="font-size:.8rem">⚠ Budget dépassé</span>' : ''}</div></div>`;
+  }).join('');
+
+  const fT = $('fType').value, fC = $('fCat').value, fS = $('fSearch').value.toLowerCase(), scope = $('fScope').value;
+  const list = tx.filter(t => (scope === 'all' || t.date.startsWith(month)) && (!fT || t.type === fT) && (!fC || t.cat === fC) && (!fS || t.desc.toLowerCase().includes(fS)))
+    .sort((a,b) => b.date.localeCompare(a.date));
+  $('list').innerHTML = list.length ? list.map(t => `<div class="tx"><div><strong>${esc(t.desc)}</strong><small>${esc(t.cat)} · ${t.date}</small></div><div style="text-align:right"><div class="${t.type === 'income' ? 'pos' : 'neg'}"><strong>${t.type === 'income' ? '+' : '-'}${fmt(t.amount)}</strong></div><div class="row" style="justify-content:flex-end;margin-top:4px"><button class="small ghost" onclick="edit('${t.id}')">Modifier</button><button class="small del" onclick="del('${t.id}')">Supprimer</button></div></div></div>`).join('') : '<div class="empty">Aucune opération.</div>';
+}
+</script>
+</body>
+</html>
